@@ -24,6 +24,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
+name = "async-trait"
+version = "0.1.88"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,8 +181,10 @@ name = "iron-oxide-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bytes",
  "iron-oxide-protocol",
+ "iron-oxide-versions",
  "serde",
  "serde_json",
  "tokio",
@@ -184,6 +197,16 @@ dependencies = [
 [[package]]
 name = "iron-oxide-versions"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "iron-oxide-protocol",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "iron-oxide-world"

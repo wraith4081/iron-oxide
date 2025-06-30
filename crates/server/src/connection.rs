@@ -1,9 +1,11 @@
 use std::io;
 use std::sync::Arc;
 use anyhow::Result;
+use async_trait::async_trait;
 use bytes::{Buf, BytesMut};
 use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
 use iron_oxide_protocol::packet::data::{read_varint, write_varint};
+use iron_oxide_versions::stream::ConnectionIO;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::{error, info};
@@ -22,6 +24,7 @@ pub struct Connection {
     buffer: BytesMut,
     pub state: ConnectionState,
     pub config: Arc<Config>,
+    pub protocol_version: i32,
 }
 
 impl Connection {
@@ -31,6 +34,7 @@ impl Connection {
             buffer: BytesMut::with_capacity(4096),
             state: ConnectionState::Handshaking,
             config,
+            protocol_version: 0,
         }
     }
 
@@ -75,7 +79,7 @@ impl Connection {
         }
     }
 
-    pub async fn read_packet<T: Packet>(&mut self) -> Result<Option<T>, PacketReadError> {
+    pub async fn read_packet<T: Packet + Send>(&mut self) -> Result<Option<T>, PacketReadError> {
         loop {
             if let Some(packet) = self.parse_packet::<T>()? {
                 return Ok(Some(packet));
@@ -125,7 +129,7 @@ impl Connection {
         Ok(Some(packet))
     }
 
-    pub async fn write_packet<T: Packet>(&mut self, packet: T) -> Result<(), PacketWriteError> {
+    pub async fn write_packet<T: Packet + Send>(&mut self, packet: T) -> Result<(), PacketWriteError> {
         let mut buf = Vec::new();
         packet.write(&mut buf)?;
 
@@ -138,3 +142,13 @@ impl Connection {
     }
 }
 
+#[async_trait]
+impl ConnectionIO for Connection {
+    async fn read_packet_io<T: Packet + Send>(&mut self) -> Result<Option<T>, PacketReadError> {
+        self.read_packet().await
+    }
+
+    async fn write_packet_io<T: Packet + Send>(&mut self, packet: T) -> Result<(), PacketWriteError> {
+        self.write_packet(packet).await
+    }
+}
