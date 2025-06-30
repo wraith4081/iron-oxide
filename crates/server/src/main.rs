@@ -7,7 +7,6 @@ use crate::config::Config;
 
 mod connection;
 mod handlers;
-mod network;
 mod config;
 
 #[tokio::main]

@@ -1,11 +1,16 @@
 use std::io;
 use std::sync::Arc;
+use anyhow::Result;
+use bytes::{Buf, BytesMut};
+use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
+use iron_oxide_protocol::packet::data::{read_varint, write_varint};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::{error, info};
 use crate::config::Config;
 use crate::handlers;
 
-pub enum State {
+pub enum ConnectionState {
     Handshaking,
     Status,
     Login,
@@ -13,8 +18,9 @@ pub enum State {
 }
 
 pub struct Connection {
-    pub stream: TcpStream,
-    pub state: State,
+    stream: TcpStream,
+    buffer: BytesMut,
+    pub state: ConnectionState,
     pub config: Arc<Config>,
 }
 
@@ -22,36 +28,113 @@ impl Connection {
     pub fn new(stream: TcpStream, config: Arc<Config>) -> Self {
         Self {
             stream,
-            state: State::Handshaking,
+            buffer: BytesMut::with_capacity(4096),
+            state: ConnectionState::Handshaking,
             config,
         }
     }
 
-    pub async fn handle(&mut self) -> io::Result<()> {
+    pub async fn handle(&mut self) -> Result<()> {
         loop {
             match self.state {
-                State::Handshaking => {
-                    self.state = handlers::handshake::handle_handshake(&mut self.stream).await?;
+                ConnectionState::Handshaking => {
+                    let new_state = handlers::handshake::handle_handshake(self).await?;
+                    self.state = new_state;
                 }
-                State::Status => {
-                    if let Err(e) = handlers::status::handle_status(&mut self.stream, self.config.clone()).await {
-                        if e.kind() == io::ErrorKind::UnexpectedEof {
-                            info!("Client closed connection during status");
-                            return Ok(());
+                ConnectionState::Status => {
+                    if let Err(e) = handlers::status::handle_status(self).await {
+                        if let Some(e) = e.downcast_ref::<io::Error>() {
+                            if e.kind() == io::ErrorKind::UnexpectedEof {
+                                info!("Client closed connection during status");
+                            } else {
+                                error!("Error handling status: {}", e);
+                            }
+                        } else {
+                            error!("Error handling status: {}", e);
                         }
-                        error!("Error handling status: {}", e);
+                    }
+                    return Ok(());
+                }
+                ConnectionState::Login => {
+                    if let Err(e) = handlers::login::handle_login(self).await {
+                        if let Some(e) = e.downcast_ref::<io::Error>() {
+                            if e.kind() == io::ErrorKind::UnexpectedEof {
+                                info!("Client closed connection during login");
+                                return Ok(());
+                            }
+                        }
+                        error!("Error handling login: {}", e);
                         return Err(e);
                     }
                 }
-                State::Login => {
-                    info!("Login not implemented");
-                    return Ok(());
-                }
-                State::Play => {
+                ConnectionState::Play => {
                     info!("Play not implemented");
                     return Ok(());
                 }
             }
         }
     }
+
+    pub async fn read_packet<T: Packet>(&mut self) -> Result<Option<T>, PacketReadError> {
+        loop {
+            if let Some(packet) = self.parse_packet::<T>()? {
+                return Ok(Some(packet));
+            }
+
+            if self.stream.read_buf(&mut self.buffer).await? == 0 {
+                return if self.buffer.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(PacketReadError::IO(io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        "Connection closed by peer",
+                    )))
+                };
+            }
+        }
+    }
+
+    fn parse_packet<T: Packet>(&mut self) -> Result<Option<T>, PacketReadError> {
+        let mut buf = &self.buffer[..];
+        let initial_len = buf.len();
+
+        if initial_len == 0 {
+            return Ok(None);
+        }
+
+        let packet_len = match read_varint(&mut buf) {
+            Ok(len) => len,
+            Err(PacketReadError::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e),
+        };
+
+        if buf.len() < packet_len as usize {
+            return Ok(None);
+        }
+
+        let packet_len_len = initial_len - buf.len();
+        let total_packet_len = packet_len_len + packet_len as usize;
+
+        let packet_data = &self.buffer[packet_len_len..total_packet_len];
+        let mut packet_data_slice = &packet_data[..];
+        let _packet_id = read_varint(&mut packet_data_slice)?;
+
+        let packet = T::read(&mut packet_data_slice)?;
+        self.buffer.advance(total_packet_len);
+
+        Ok(Some(packet))
+    }
+
+    pub async fn write_packet<T: Packet>(&mut self, packet: T) -> Result<(), PacketWriteError> {
+        let mut buf = Vec::new();
+        packet.write(&mut buf)?;
+
+        let mut final_buf = Vec::new();
+        write_varint(&mut final_buf, buf.len() as i32)?;
+        final_buf.extend_from_slice(&buf);
+
+        self.stream.write_all(&final_buf).await?;
+        Ok(())
+    }
 }
+
