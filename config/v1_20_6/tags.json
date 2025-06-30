@@ -1,0 +1,9 @@
+{
+  "minecraft:block": {
+    "minecraft:planks": [
+      0,
+      1,
+      2
+    ]
+  }
+}

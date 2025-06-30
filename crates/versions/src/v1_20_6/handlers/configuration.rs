@@ -95,7 +95,7 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
     info!("Sent Known Packs");
 
     // Send Registry Data
-    let registry_data_str = fs::read_to_string("docs/registry-data.json")?;
+    let registry_data_str = fs::read_to_string("config/v1_20_6/registry-data.json")?;
     let registry_data_json: JsonValue = serde_json::from_str(&registry_data_str)?;
 
     if let JsonValue::Object(registries) = registry_data_json {
@@ -119,9 +119,51 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
     }
     info!("Sent Registry Data");
 
+    // Send Feature Flags
+    let feature_flags_packet = crate::v1_20_6::packets::configuration::FeatureFlags {
+        feature_flags: vec!["minecraft:vanilla".to_string()],
+    };
+    conn.write_packet(feature_flags_packet).await?;
+    info!("Sent Feature Flags");
+
+    // Send Update Tags
+    let update_tags_packet = crate::v1_20_6::packets::configuration::UpdateTags {
+        tags: load_tags()?,
+    };
+    conn.write_packet(update_tags_packet).await?;
+    info!("Sent Update Tags");
+
     // Send Finish Configuration
     conn.write_packet(FinishConfiguration).await?;
     info!("Sent Finish Configuration");
 
     Ok(())
+}
+
+fn load_tags() -> Result<Vec<(String, Vec<(String, Vec<i32>)>)>> {
+    let tags_str = fs::read_to_string("config/v1_20_6/tags.json")?;
+    let tags_json: JsonValue = serde_json::from_str(&tags_str)?;
+    let mut tags = Vec::new();
+
+    if let JsonValue::Object(registries) = tags_json {
+        for (registry_id, registry_tags) in registries {
+            let mut tag_list = Vec::new();
+            if let JsonValue::Object(tags_map) = registry_tags {
+                for (tag_name, entries) in tags_map {
+                    let mut entry_list = Vec::new();
+                    if let JsonValue::Array(entry_array) = entries {
+                        for entry in entry_array {
+                            if let JsonValue::Number(n) = entry {
+                                entry_list.push(n.as_i64().unwrap() as i32);
+                            }
+                        }
+                    }
+                    tag_list.push((tag_name, entry_list));
+                }
+            }
+            tags.push((registry_id, tag_list));
+        }
+    }
+
+    Ok(tags)
 }

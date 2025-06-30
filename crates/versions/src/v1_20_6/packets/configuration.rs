@@ -191,3 +191,51 @@ impl Packet for ServerboundKnownPacks {
         unimplemented!()
     }
 }
+
+#[derive(Debug)]
+pub struct FeatureFlags {
+    pub feature_flags: Vec<String>,
+}
+
+impl Packet for FeatureFlags {
+    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
+        unimplemented!()
+    }
+
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
+        write_varint(buffer, 0x0C)?;
+        write_varint(buffer, self.feature_flags.len() as i32)?;
+        for flag in &self.feature_flags {
+            write_string(buffer, flag)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct UpdateTags {
+    pub tags: Vec<(String, Vec<(String, Vec<i32>)>)>,
+}
+
+impl Packet for UpdateTags {
+    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
+        unimplemented!()
+    }
+
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
+        write_varint(buffer, 0x0D)?;
+        write_varint(buffer, self.tags.len() as i32)?;
+        for (registry, tags) in &self.tags {
+            write_string(buffer, registry)?;
+            write_varint(buffer, tags.len() as i32)?;
+            for (name, entries) in tags {
+                write_string(buffer, name)?;
+                write_varint(buffer, entries.len() as i32)?;
+                for entry in entries {
+                    write_varint(buffer, *entry)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
