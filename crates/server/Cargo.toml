@@ -1,0 +1,17 @@
+[package]
+name = "iron-oxide-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+
+iron-oxide-protocol = { path = "../protocol" }
+iron-oxide-world = { path = "../world" }
+iron-oxide-game = { path = "../game" }
+iron-oxide-common = { path = "../common" }
+iron-oxide-versions = { path = "../versions" }

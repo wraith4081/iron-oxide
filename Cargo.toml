@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/server",
+    "crates/protocol",
+    "crates/world",
+    "crates/game",
+    "crates/common",
+    "crates/versions",
+]
+
+[workspace.dependencies]
+tokio = { version = "1.38.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+serde = { version = "1.0.203", features = ["derive"] }
+toml = "0.8.14"
