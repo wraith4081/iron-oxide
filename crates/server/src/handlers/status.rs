@@ -1,16 +1,18 @@
 use std::io;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::{error, info};
+use crate::config::Config;
 use crate::network;
 use protocol::packet::status::{Description, Players, StatusResponse, Version};
 
-pub async fn handle_status(stream: &mut TcpStream) -> io::Result<()> {
+pub async fn handle_status(stream: &mut TcpStream, config: Arc<Config>) -> io::Result<()> {
     let _packet_length = network::read_varint(stream).await?;
     let packet_id = network::read_varint(stream).await?;
 
     if packet_id == 0x00 {
-        handle_status_request(stream).await?;
+        handle_status_request(stream, config).await?;
     } else if packet_id == 0x01 {
         handle_ping_request(stream).await?;
     } else {
@@ -24,7 +26,7 @@ pub async fn handle_status(stream: &mut TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-async fn handle_status_request(stream: &mut TcpStream) -> io::Result<()> {
+async fn handle_status_request(stream: &mut TcpStream, config: Arc<Config>) -> io::Result<()> {
     info!("Handling Status Request");
     let response = StatusResponse {
         version: Version {
@@ -32,12 +34,12 @@ async fn handle_status_request(stream: &mut TcpStream) -> io::Result<()> {
             protocol: 766,
         },
         players: Players {
-            max: 100,
+            max: config.players.max_players,
             online: 0,
             sample: None,
         },
         description: Description {
-            text: "An Iron Oxide Server".to_string(),
+            text: config.server.motd.clone(),
         },
         favicon: None,
         enforces_secure_chat: false,

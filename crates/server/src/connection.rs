@@ -1,6 +1,8 @@
 use std::io;
+use std::sync::Arc;
 use tokio::net::TcpStream;
 use tracing::{error, info};
+use crate::config::Config;
 use crate::handlers;
 
 pub enum State {
@@ -13,13 +15,15 @@ pub enum State {
 pub struct Connection {
     pub stream: TcpStream,
     pub state: State,
+    pub config: Arc<Config>,
 }
 
 impl Connection {
-    pub fn new(stream: TcpStream) -> Self {
+    pub fn new(stream: TcpStream, config: Arc<Config>) -> Self {
         Self {
             stream,
             state: State::Handshaking,
+            config,
         }
     }
 
@@ -30,7 +34,7 @@ impl Connection {
                     self.state = handlers::handshake::handle_handshake(&mut self.stream).await?;
                 }
                 State::Status => {
-                    if let Err(e) = handlers::status::handle_status(&mut self.stream).await {
+                    if let Err(e) = handlers::status::handle_status(&mut self.stream, self.config.clone()).await {
                         if e.kind() == io::ErrorKind::UnexpectedEof {
                             info!("Client closed connection during status");
                             return Ok(());

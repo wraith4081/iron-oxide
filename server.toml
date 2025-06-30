@@ -1,0 +1,9 @@
+[server]
+# The address and port the server will listen on.
+address = "127.0.0.1:25565"
+# The server's message of the day (MOTD).
+motd = "Another Iron Oxide Server from Config"
+
+[players]
+# The maximum number of players that can be on the server at once.
+max_players = 20
