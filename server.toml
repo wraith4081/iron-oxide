@@ -1,7 +1,0 @@
-[server]
-motd = "A Rust-powered Minecraft Server from Config!"
-ip = "127.0.0.1"
-port = 25565
-
-[players]
-max_players = 100
