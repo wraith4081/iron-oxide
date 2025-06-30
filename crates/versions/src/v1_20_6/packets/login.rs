@@ -10,7 +10,11 @@ pub struct LoginStart {
 impl Packet for LoginStart {
     fn read(buffer: &mut &[u8]) -> Result<Self, PacketReadError> {
         let name = read_string(buffer)?;
-        let uuid = read_uuid(buffer)?;
+        let uuid = if buffer.is_empty() {
+            Uuid::new_v3(&Uuid::NAMESPACE_DNS, name.as_bytes())
+        } else {
+            read_uuid(buffer)?
+        };
         Ok(Self { name, uuid })
     }
 

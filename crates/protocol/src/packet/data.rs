@@ -86,3 +86,23 @@ pub fn write_uuid(buffer: &mut Vec<u8>, value: Uuid) -> Result<(), PacketWriteEr
     buffer.extend_from_slice(value.as_bytes());
     Ok(())
 }
+
+pub fn read_bytes<'a>(buffer: &mut &'a [u8], len: usize) -> Result<&'a [u8], PacketReadError> {
+    if buffer.len() < len {
+        return Err(PacketReadError::UnexpectedEof);
+    }
+    let (bytes, rest) = buffer.split_at(len);
+    *buffer = rest;
+    Ok(bytes)
+}
+
+pub fn write_varint_prefixed_array<T, F>(buffer: &mut Vec<u8>, array: &[T], mut writer: F) -> Result<(), PacketWriteError>
+where
+    F: FnMut(&mut Vec<u8>, &T) -> Result<(), PacketWriteError>,
+{
+    write_varint(buffer, array.len() as i32)?;
+    for item in array {
+        writer(buffer, item)?;
+    }
+    Ok(())
+}

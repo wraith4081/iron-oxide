@@ -13,6 +13,8 @@ pub enum PacketReadError {
     InvalidString,
     #[error("Invalid UUID")]
     InvalidUuid,
+    #[error("Unexpected EOF")]
+    UnexpectedEof,
 }
 
 #[derive(Debug, Error)]

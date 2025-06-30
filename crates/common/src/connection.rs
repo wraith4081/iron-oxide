@@ -56,6 +56,44 @@ impl Connection {
         }
     }
 
+    pub async fn peek_packet(&mut self) -> Result<&[u8], PacketReadError> {
+        loop {
+            if !self.buffer.is_empty() {
+                return Ok(&self.buffer[..]);
+            }
+
+            if self.stream.read_buf(&mut self.buffer).await? == 0 {
+                return if self.buffer.is_empty() {
+                    Ok(&[])
+                } else {
+                    Err(PacketReadError::IO(io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        "Connection closed by peer",
+                    )))
+                };
+            }
+        }
+    }
+
+    pub async fn read_packet_raw(&mut self) -> Result<Option<BytesMut>, PacketReadError> {
+        loop {
+            if let Some(packet) = self.parse_packet_raw()? {
+                return Ok(Some(packet));
+            }
+
+            if self.stream.read_buf(&mut self.buffer).await? == 0 {
+                return if self.buffer.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(PacketReadError::IO(io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        "Connection closed by peer",
+                    )))
+                };
+            }
+        }
+    }
+
     fn parse_packet<T: Packet>(&mut self) -> Result<Option<T>, PacketReadError> {
         let mut buf = &self.buffer[..];
         let initial_len = buf.len();
@@ -85,6 +123,31 @@ impl Connection {
         self.buffer.advance(total_packet_len);
 
         Ok(Some(packet))
+    }
+
+    fn parse_packet_raw(&mut self) -> Result<Option<BytesMut>, PacketReadError> {
+        let mut buf = &self.buffer[..];
+        let initial_len = buf.len();
+
+        if initial_len == 0 {
+            return Ok(None);
+        }
+
+        let packet_len = match read_varint(&mut buf) {
+            Ok(len) => len,
+            Err(PacketReadError::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e),
+        };
+
+        if buf.len() < packet_len as usize {
+            return Ok(None);
+        }
+
+        let packet_len_len = initial_len - buf.len();
+        let total_packet_len = packet_len_len + packet_len as usize;
+
+        let packet_data = self.buffer.split_to(total_packet_len);
+        Ok(Some(packet_data))
     }
 
     pub async fn write_packet<T: Packet + Send>(&mut self, packet: T) -> Result<(), PacketWriteError> {
