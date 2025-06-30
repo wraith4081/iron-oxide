@@ -16,6 +16,7 @@ pub enum ConnectionState {
     Handshaking,
     Status,
     Login,
+    Configuration,
     Play,
 }
 
@@ -60,16 +61,12 @@ impl Connection {
                     return Ok(());
                 }
                 ConnectionState::Login => {
-                    if let Err(e) = handlers::login::handle_login(self).await {
-                        if let Some(e) = e.downcast_ref::<io::Error>() {
-                            if e.kind() == io::ErrorKind::UnexpectedEof {
-                                info!("Client closed connection during login");
-                                return Ok(());
-                            }
-                        }
-                        error!("Error handling login: {}", e);
-                        return Err(e);
-                    }
+                    let new_state = handlers::login::handle_login(self).await?;
+                    self.state = new_state;
+                }
+                ConnectionState::Configuration => {
+                    let new_state = handlers::configuration::handle_configuration(self).await?;
+                    self.state = new_state;
                 }
                 ConnectionState::Play => {
                     info!("Play not implemented");
