@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tracing::info;
 use uuid::Uuid;
-use crate::stream::ConnectionIO;
+use iron_oxide_protocol::stream::ConnectionIO;
 use crate::v1_20_6::packets::login::{LoginAcknowledged, LoginStart, LoginSuccess};
 
 pub async fn handle_login(conn: &mut (impl ConnectionIO + Send)) -> Result<()> {

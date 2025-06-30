@@ -1,5 +1,5 @@
 use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
-use iron_oxide_protocol::packet::data::{read_string, read_uuid, write_string, write_uuid, read_varint, write_varint};
+use iron_oxide_protocol::packet::data::{read_string, read_uuid, write_string, write_uuid, write_varint};
 use uuid::Uuid;
 
 pub struct LoginStart {

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use tracing::info;
-use crate::stream::ConnectionIO;
+use iron_oxide_protocol::stream::ConnectionIO;
 use crate::v1_20_6::packets::status::{
     PingRequest, PongResponse, StatusRequest, StatusResponse as StatusResponsePacket,
 };

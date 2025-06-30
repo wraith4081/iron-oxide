@@ -5,12 +5,10 @@ use async_trait::async_trait;
 use bytes::{Buf, BytesMut};
 use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
 use iron_oxide_protocol::packet::data::{read_varint, write_varint};
-use iron_oxide_versions::stream::ConnectionIO;
+use iron_oxide_protocol::stream::ConnectionIO;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tracing::{error, info};
 use crate::config::Config;
-use crate::handlers;
 
 pub enum ConnectionState {
     Handshaking,
@@ -36,43 +34,6 @@ impl Connection {
             state: ConnectionState::Handshaking,
             config,
             protocol_version: 0,
-        }
-    }
-
-    pub async fn handle(&mut self) -> Result<()> {
-        loop {
-            match self.state {
-                ConnectionState::Handshaking => {
-                    let new_state = handlers::handshake::handle_handshake(self).await?;
-                    self.state = new_state;
-                }
-                ConnectionState::Status => {
-                    if let Err(e) = handlers::status::handle_status(self).await {
-                        if let Some(e) = e.downcast_ref::<io::Error>() {
-                            if e.kind() == io::ErrorKind::UnexpectedEof {
-                                info!("Client closed connection during status");
-                            } else {
-                                error!("Error handling status: {}", e);
-                            }
-                        } else {
-                            error!("Error handling status: {}", e);
-                        }
-                    }
-                    return Ok(());
-                }
-                ConnectionState::Login => {
-                    let new_state = handlers::login::handle_login(self).await?;
-                    self.state = new_state;
-                }
-                ConnectionState::Configuration => {
-                    let new_state = handlers::configuration::handle_configuration(self).await?;
-                    self.state = new_state;
-                }
-                ConnectionState::Play => {
-                    info!("Play not implemented");
-                    return Ok(());
-                }
-            }
         }
     }
 

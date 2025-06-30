@@ -1,8 +1,8 @@
 use anyhow::Result;
+use iron_oxide_common::connection::{Connection, ConnectionState};
 use iron_oxide_versions::v1_20_6::packets::handshake::Handshake;
 use iron_oxide_versions::VersionManager;
 use tracing::info;
-use crate::connection::{Connection, ConnectionState};
 
 pub async fn handle_handshake(conn: &mut Connection) -> Result<ConnectionState> {
     let handshake: Handshake = conn.read_packet().await?.unwrap();

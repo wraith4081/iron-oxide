@@ -9,10 +9,9 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 iron-oxide-protocol = { path = "../protocol" }
 iron-oxide-versions = { path = "../versions" }
+iron-oxide-common = { path = "../common" }
 serde_json = "1.0"
 toml = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-bytes = "1"
 anyhow = "1"
 uuid = { version = "1.8.0", features = ["v3"] }
-async-trait = "0.1"

@@ -1,6 +1,6 @@
 use anyhow::Result;
+use iron_oxide_common::connection::{Connection, ConnectionState};
 use iron_oxide_versions::VersionManager;
-use crate::connection::{Connection, ConnectionState};
 
 pub async fn handle_login(conn: &mut Connection) -> Result<ConnectionState> {
     let version = VersionManager::get_version(conn.protocol_version)?;

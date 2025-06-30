@@ -1,7 +1,6 @@
 use thiserror::Error;
 
 pub mod v1_20_6;
-pub mod stream;
 
 #[derive(Debug, Error)]
 pub enum VersionError {

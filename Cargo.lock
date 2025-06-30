@@ -161,6 +161,15 @@ dependencies = [
 [[package]]
 name = "iron-oxide-common"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "iron-oxide-protocol",
+ "serde",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "iron-oxide-game"
@@ -170,6 +179,8 @@ version = "0.1.0"
 name = "iron-oxide-protocol"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
  "serde",
  "serde_json",
  "thiserror",
@@ -181,8 +192,7 @@ name = "iron-oxide-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "bytes",
+ "iron-oxide-common",
  "iron-oxide-protocol",
  "iron-oxide-versions",
  "serde",
@@ -200,6 +210,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "iron-oxide-common",
  "iron-oxide-protocol",
  "serde",
  "serde_json",

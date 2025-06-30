@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
+use crate::packet::{Packet, PacketReadError, PacketWriteError};
 
 #[async_trait]
 pub trait ConnectionIO {

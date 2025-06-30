@@ -2,12 +2,11 @@ use std::{fs, io};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::{error, info};
-use crate::connection::Connection;
-use crate::config::Config;
+use iron_oxide_common::connection::Connection;
+use iron_oxide_common::config::Config;
 
-mod connection;
 mod handlers;
-mod config;
+mod connection_handler;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
@@ -25,8 +24,8 @@ async fn main() -> io::Result<()> {
         info!("Accepted connection from: {}", addr);
         let config = Arc::clone(&config);
         tokio::spawn(async move {
-            let mut connection = Connection::new(socket, config);
-            if let Err(e) = connection.handle().await {
+            let connection = Connection::new(socket, config);
+            if let Err(e) = connection_handler::handle_connection(connection).await {
                 error!("Error handling connection: {}", e);
             }
         });
