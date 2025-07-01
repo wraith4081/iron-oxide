@@ -247,6 +247,10 @@ dependencies = [
 [[package]]
 name = "iron-oxide-world"
 version = "0.1.0"
+dependencies = [
+ "fastnbt",
+ "thiserror",
+]
 
 [[package]]
 name = "itoa"
