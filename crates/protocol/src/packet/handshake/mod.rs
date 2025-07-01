@@ -1,5 +1,6 @@
-use crate::packet::{Packet, PacketReadError, PacketWriteError};
+use crate::error::Result;
 use crate::packet::data::{read_string, read_unsigned_short, read_varint, write_string, write_unsigned_short, write_varint};
+use crate::packet::Packet;
 
 pub struct Handshake {
     pub protocol_version: i32,
@@ -9,7 +10,7 @@ pub struct Handshake {
 }
 
 impl Packet for Handshake {
-    fn read(buffer: &mut &[u8]) -> Result<Self, PacketReadError> {
+    fn read(buffer: &mut &[u8]) -> Result<Self> {
         let protocol_version = read_varint(buffer)?;
         let server_address = read_string(buffer)?;
         let server_port = read_unsigned_short(buffer)?;
@@ -22,7 +23,7 @@ impl Packet for Handshake {
         })
     }
 
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<()> {
         write_varint(buffer, self.protocol_version)?;
         write_string(buffer, &self.server_address)?;
         write_unsigned_short(buffer, self.server_port)?;

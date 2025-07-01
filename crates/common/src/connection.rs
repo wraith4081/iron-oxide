@@ -1,9 +1,9 @@
 use std::io;
 use std::sync::Arc;
-use anyhow::Result;
 use async_trait::async_trait;
 use bytes::{Buf, BytesMut};
-use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
+use iron_oxide_protocol::error::{Error, Result};
+use iron_oxide_protocol::packet::Packet;
 use iron_oxide_protocol::packet::raw_data::{read_varint, write_varint};
 use iron_oxide_protocol::stream::ConnectionIO;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -37,7 +37,7 @@ impl Connection {
         }
     }
 
-    pub async fn read_packet<T: Packet + Send>(&mut self) -> Result<Option<T>, PacketReadError> {
+    pub async fn read_packet<T: Packet + Send>(&mut self) -> Result<Option<T>> {
         loop {
             if let Some(packet) = self.parse_packet::<T>()? {
                 return Ok(Some(packet));
@@ -47,7 +47,7 @@ impl Connection {
                 return if self.buffer.is_empty() {
                     Ok(None)
                 } else {
-                    Err(PacketReadError::IO(io::Error::new(
+                    Err(Error::Io(io::Error::new(
                         io::ErrorKind::ConnectionAborted,
                         "Connection closed by peer",
                     )))
@@ -56,7 +56,7 @@ impl Connection {
         }
     }
 
-    pub async fn peek_packet(&mut self) -> Result<&[u8], PacketReadError> {
+    pub async fn peek_packet(&mut self) -> Result<&[u8]> {
         loop {
             if !self.buffer.is_empty() {
                 return Ok(&self.buffer[..]);
@@ -66,7 +66,7 @@ impl Connection {
                 return if self.buffer.is_empty() {
                     Ok(&[])
                 } else {
-                    Err(PacketReadError::IO(io::Error::new(
+                    Err(Error::Io(io::Error::new(
                         io::ErrorKind::ConnectionAborted,
                         "Connection closed by peer",
                     )))
@@ -75,7 +75,7 @@ impl Connection {
         }
     }
 
-    pub async fn read_packet_raw(&mut self) -> Result<Option<BytesMut>, PacketReadError> {
+    pub async fn read_packet_raw(&mut self) -> Result<Option<BytesMut>> {
         loop {
             if let Some(packet) = self.parse_packet_raw()? {
                 return Ok(Some(packet));
@@ -85,7 +85,7 @@ impl Connection {
                 return if self.buffer.is_empty() {
                     Ok(None)
                 } else {
-                    Err(PacketReadError::IO(io::Error::new(
+                    Err(Error::Io(io::Error::new(
                         io::ErrorKind::ConnectionAborted,
                         "Connection closed by peer",
                     )))
@@ -94,7 +94,7 @@ impl Connection {
         }
     }
 
-    fn parse_packet<T: Packet>(&mut self) -> Result<Option<T>, PacketReadError> {
+    fn parse_packet<T: Packet>(&mut self) -> Result<Option<T>> {
         let mut buf = &self.buffer[..];
         let initial_len = buf.len();
 
@@ -104,7 +104,7 @@ impl Connection {
 
         let packet_len = match read_varint(&mut buf) {
             Ok(len) => len,
-            Err(PacketReadError::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(Error::Io(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e),
         };
 
@@ -125,7 +125,7 @@ impl Connection {
         Ok(Some(packet))
     }
 
-    fn parse_packet_raw(&mut self) -> Result<Option<BytesMut>, PacketReadError> {
+    fn parse_packet_raw(&mut self) -> Result<Option<BytesMut>> {
         let mut buf = &self.buffer[..];
         let initial_len = buf.len();
 
@@ -135,7 +135,7 @@ impl Connection {
 
         let packet_len = match read_varint(&mut buf) {
             Ok(len) => len,
-            Err(PacketReadError::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(Error::Io(e)) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e),
         };
 
@@ -150,7 +150,7 @@ impl Connection {
         Ok(Some(packet_data))
     }
 
-    pub async fn write_packet<T: Packet + Send>(&mut self, packet: T) -> Result<(), PacketWriteError> {
+    pub async fn write_packet<T: Packet + Send>(&mut self, packet: T) -> Result<()> {
         let mut buf = Vec::new();
         packet.write(&mut buf)?;
 
@@ -165,11 +165,11 @@ impl Connection {
 
 #[async_trait]
 impl ConnectionIO for Connection {
-    async fn read_packet_io<T: Packet + Send>(&mut self) -> Result<Option<T>, PacketReadError> {
+    async fn read_packet_io<T: Packet + Send>(&mut self) -> Result<Option<T>> {
         self.read_packet().await
     }
 
-    async fn write_packet_io<T: Packet + Send>(&mut self, packet: T) -> Result<(), PacketWriteError> {
+    async fn write_packet_io<T: Packet + Send>(&mut self, packet: T) -> Result<()> {
         self.write_packet(packet).await
     }
 }

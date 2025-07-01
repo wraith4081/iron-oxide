@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::sync::Arc;
 use tracing::info;
 use iron_oxide_common::config::Config;
@@ -10,27 +9,36 @@ use crate::v1_20_6::packets::configuration::{
 use std::fs;
 use fastnbt::Value;
 use serde_json::Value as JsonValue;
+use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_protocol::packet::raw_data::read_varint;
 use iron_oxide_protocol::packet::types::PacketBytes;
 
-fn json_to_nbt(json: &JsonValue) -> Value {
+fn json_to_nbt(json: &JsonValue) -> Result<Value> {
     match json {
-        JsonValue::Null => Value::Compound(Default::default()),
-        JsonValue::Bool(b) => Value::Byte(if *b { 1 } else { 0 }),
+        JsonValue::Null => Ok(Value::Compound(Default::default())),
+        JsonValue::Bool(b) => Ok(Value::Byte(if *b { 1 } else { 0 })),
         JsonValue::Number(n) => {
             if n.is_f64() {
-                Value::Double(n.as_f64().unwrap())
+                Ok(Value::Double(n.as_f64().ok_or_else(|| Error::Protocol("Invalid f64 in JSON".to_string()))?))
             } else {
-                Value::Long(n.as_i64().unwrap())
+                Ok(Value::Long(n.as_i64().ok_or_else(|| Error::Protocol("Invalid i64 in JSON".to_string()))?))
             }
         }
-        JsonValue::String(s) => Value::String(s.clone()),
-        JsonValue::Array(a) => Value::List(a.iter().map(json_to_nbt).collect()),
-        JsonValue::Object(o) => Value::Compound(
-            o.iter()
-                .map(|(k, v)| (k.clone(), json_to_nbt(v)))
-                .collect(),
-        ),
+        JsonValue::String(s) => Ok(Value::String(s.clone())),
+        JsonValue::Array(a) => {
+            let mut list = Vec::new();
+            for item in a {
+                list.push(json_to_nbt(item)?);
+            }
+            Ok(Value::List(list))
+        }
+        JsonValue::Object(o) => {
+            let mut map = std::collections::HashMap::new();
+            for (k, v) in o {
+                map.insert(k.clone(), json_to_nbt(v)?);
+            }
+            Ok(Value::Compound(map))
+        }
     }
 }
 
@@ -38,7 +46,7 @@ pub async fn handle_configuration(conn: &mut Connection, _config: Arc<Config>) -
     info!("Client entered configuration state");
 
     // The client must send Client Information first.
-    let client_info: ClientInformation = conn.read_packet().await?.unwrap();
+    let client_info: ClientInformation = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ClientInformation packet not received".to_string()))?;
     info!("Received client information: {:?}", client_info);
 
     // The client may send plugin messages. We need to handle them.
@@ -46,15 +54,15 @@ pub async fn handle_configuration(conn: &mut Connection, _config: Arc<Config>) -
         let packet_id = read_varint(&mut conn.peek_packet().await?)?;
         match packet_id {
             0x00 => { // Client Information
-                let _client_info: ClientInformation = conn.read_packet().await?.unwrap();
+                let _client_info: ClientInformation = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ClientInformation packet not received".to_string()))?;
                 info!("Received client information: {:?}", _client_info);
             }
             0x02 => { // Plugin Message
-                let plugin_message: ServerboundPluginMessage = conn.read_packet().await?.unwrap();
+                let plugin_message: ServerboundPluginMessage = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ServerboundPluginMessage packet not received".to_string()))?;
                 info!("Received plugin message: {:?}", plugin_message);
             }
             0x07 => { // Known Packs
-                let serverbound_known_packs: ServerboundKnownPacks = conn.read_packet().await?.unwrap();
+                let serverbound_known_packs: ServerboundKnownPacks = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ServerboundKnownPacks packet not received".to_string()))?;
                 info!("Received Known Packs: {:?}", serverbound_known_packs);
                 break;
             }
@@ -69,7 +77,7 @@ pub async fn handle_configuration(conn: &mut Connection, _config: Arc<Config>) -
     send_server_configuration(conn).await?;
 
     // Wait for Acknowledge Finish Configuration
-    let _ack: AcknowledgeFinishConfiguration = conn.read_packet().await?.unwrap();
+    let _ack: AcknowledgeFinishConfiguration = conn.read_packet().await?.ok_or_else(|| Error::Protocol("AcknowledgeFinishConfiguration packet not received".to_string()))?;
     info!("Received Acknowledge Finish Configuration");
 
     Ok(())
@@ -97,14 +105,14 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
 
     // Send Registry Data
     let registry_data_str = fs::read_to_string("config/v1_20_6/registry-data.json")?;
-    let registry_data_json: JsonValue = serde_json::from_str(&registry_data_str)?;
+    let registry_data_json: JsonValue = serde_json::from_str(&registry_data_str).map_err(|e| Error::Protocol(format!("Failed to parse registry data: {}", e)))?;
 
     if let JsonValue::Object(registries) = registry_data_json {
         for (registry_id, registry) in registries {
             if let JsonValue::Object(entries) = registry {
                 let mut nbt_entries = Vec::new();
                 for (entry_id, data) in entries {
-                    let nbt_value = json_to_nbt(&data);
+                    let nbt_value = json_to_nbt(&data)?;
                     nbt_entries.push((entry_id, Some(nbt_value)));
                 }
 
@@ -143,7 +151,7 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
 
 fn load_tags() -> Result<Vec<(String, Vec<(String, Vec<i32>)>)>> {
     let tags_str = fs::read_to_string("config/v1_20_6/tags.json")?;
-    let tags_json: JsonValue = serde_json::from_str(&tags_str)?;
+    let tags_json: JsonValue = serde_json::from_str(&tags_str).map_err(|e| Error::Protocol(format!("Failed to parse tags: {}", e)))?;
     let mut tags = Vec::new();
 
     if let JsonValue::Object(registries) = tags_json {
@@ -155,7 +163,7 @@ fn load_tags() -> Result<Vec<(String, Vec<(String, Vec<i32>)>)>> {
                     if let JsonValue::Array(entry_array) = entries {
                         for entry in entry_array {
                             if let JsonValue::Number(n) = entry {
-                                entry_list.push(n.as_i64().unwrap() as i32);
+                                entry_list.push(n.as_i64().ok_or_else(|| Error::Protocol("Invalid i64 in tags".to_string()))? as i32);
                             }
                         }
                     }

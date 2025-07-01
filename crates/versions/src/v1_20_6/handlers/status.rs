@@ -1,5 +1,5 @@
-use anyhow::Result;
 use tracing::info;
+use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_protocol::stream::ConnectionIO;
 use crate::v1_20_6::packets::status::{
     PingRequest, PongResponse, StatusRequest, StatusResponse as StatusResponsePacket,
@@ -11,7 +11,7 @@ pub async fn handle_status(
     max_players: i32,
     motd: String,
 ) -> Result<()> {
-    let _: StatusRequest = conn.read_packet_io().await?.unwrap();
+    let _: StatusRequest = conn.read_packet_io().await?.ok_or_else(|| Error::Protocol("StatusRequest packet not received".to_string()))?;
     info!("Handling Status Request");
 
     let response = StatusResponsePacket {
@@ -29,7 +29,7 @@ pub async fn handle_status(
                 text: motd,
             },
             favicon: None,
-        })?,
+        }).map_err(|e| Error::PacketSerialization(e.to_string()))?,
     };
     conn.write_packet_io(response).await?;
     info!("Sent Status Response");

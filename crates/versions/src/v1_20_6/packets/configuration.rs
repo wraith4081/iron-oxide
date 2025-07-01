@@ -1,3 +1,4 @@
+use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_protocol::packet;
 use fastnbt::Value;
 use iron_oxide_protocol::packet::types::{PacketByte, PacketBytes};
@@ -23,7 +24,7 @@ pub struct KnownPack {
 }
 
 impl packet::data::PacketData for KnownPack {
-    fn read(buffer: &mut &[u8]) -> Result<Self, packet::PacketReadError> {
+    fn read(buffer: &mut &[u8]) -> Result<Self> {
         Ok(Self {
             namespace: packet::data::PacketData::read(buffer)?,
             id: packet::data::PacketData::read(buffer)?,
@@ -31,7 +32,7 @@ impl packet::data::PacketData for KnownPack {
         })
     }
 
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<()> {
         packet::data::PacketData::write(&self.namespace, buffer)?;
         packet::data::PacketData::write(&self.id, buffer)?;
         packet::data::PacketData::write(&self.version, buffer)?;
@@ -39,7 +40,7 @@ impl packet::data::PacketData for KnownPack {
     }
 }
 
-fn read_known_packs(buffer: &mut &[u8]) -> Result<Vec<KnownPack>, packet::PacketReadError> {
+fn read_known_packs(buffer: &mut &[u8]) -> Result<Vec<KnownPack>> {
     let len: i32 = packet::data::PacketData::read(buffer)?;
     let mut packs = Vec::with_capacity(len as usize);
     for _ in 0..len {
@@ -48,7 +49,7 @@ fn read_known_packs(buffer: &mut &[u8]) -> Result<Vec<KnownPack>, packet::Packet
     Ok(packs)
 }
 
-fn write_known_packs(packs: &Vec<KnownPack>, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+fn write_known_packs(packs: &Vec<KnownPack>, buffer: &mut Vec<u8>) -> Result<()> {
     packet::data::PacketData::write(&(packs.len() as i32), buffer)?;
     for pack in packs {
         packet::data::PacketData::write(pack, buffer)?;
@@ -70,11 +71,11 @@ pub struct RegistryData<'a> {
 
 // This packet is too complex for the macro, so we'll implement it manually.
 impl packet::Packet for RegistryData<'_> {
-    fn read(_: &mut &[u8]) -> Result<Self, packet::PacketReadError> {
+    fn read(_: &mut &[u8]) -> Result<Self> {
         unimplemented!()
     }
 
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<()> {
         packet::raw_data::write_varint(buffer, 0x07)?;
         packet::data::PacketData::write(&self.registry_id, buffer)?;
         packet::data::PacketData::write(&(self.entries.len() as i32), buffer)?;
@@ -82,7 +83,7 @@ impl packet::Packet for RegistryData<'_> {
             packet::data::PacketData::write(entry_id, buffer)?;
             if let Some(nbt) = data {
                 let mut nbt_buf = Vec::new();
-                fastnbt::to_writer(&mut nbt_buf, nbt).unwrap();
+                fastnbt::to_writer(&mut nbt_buf, nbt).map_err(|e| Error::PacketSerialization(e.to_string()))?;
                 packet::data::PacketData::write(&true, buffer)?;
                 buffer.extend_from_slice(&nbt_buf);
             } else {
@@ -127,7 +128,7 @@ packet! {
     }
 }
 
-fn read_feature_flags(buffer: &mut &[u8]) -> Result<Vec<String>, packet::PacketReadError> {
+fn read_feature_flags(buffer: &mut &[u8]) -> Result<Vec<String>> {
     let len: i32 = packet::data::PacketData::read(buffer)?;
     let mut flags = Vec::with_capacity(len as usize);
     for _ in 0..len {
@@ -136,7 +137,7 @@ fn read_feature_flags(buffer: &mut &[u8]) -> Result<Vec<String>, packet::PacketR
     Ok(flags)
 }
 
-fn write_feature_flags(flags: &Vec<String>, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+fn write_feature_flags(flags: &Vec<String>, buffer: &mut Vec<u8>) -> Result<()> {
     packet::data::PacketData::write(&(flags.len() as i32), buffer)?;
     for flag in flags {
         packet::data::PacketData::write(flag, buffer)?;
@@ -154,7 +155,7 @@ packet! {
 type Tag = (String, Vec<i32>);
 type TagRegistry = (String, Vec<Tag>);
 
-fn read_tags(buffer: &mut &[u8]) -> Result<Vec<TagRegistry>, packet::PacketReadError> {
+fn read_tags(buffer: &mut &[u8]) -> Result<Vec<TagRegistry>> {
     let len: i32 = packet::data::PacketData::read(buffer)?;
     let mut registries = Vec::with_capacity(len as usize);
     for _ in 0..len {
@@ -175,7 +176,7 @@ fn read_tags(buffer: &mut &[u8]) -> Result<Vec<TagRegistry>, packet::PacketReadE
     Ok(registries)
 }
 
-fn write_tags(registries: &Vec<TagRegistry>, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+fn write_tags(registries: &Vec<TagRegistry>, buffer: &mut Vec<u8>) -> Result<()> {
     packet::data::PacketData::write(&(registries.len() as i32), buffer)?;
     for (registry_id, tags) in registries {
         packet::data::PacketData::write(registry_id, buffer)?;

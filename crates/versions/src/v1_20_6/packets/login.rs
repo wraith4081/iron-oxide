@@ -1,3 +1,4 @@
+use iron_oxide_protocol::error::Result;
 use iron_oxide_protocol::packet;
 use uuid::Uuid;
 
@@ -9,7 +10,7 @@ packet! {
     }
 }
 
-fn read_properties(buffer: &mut &[u8]) -> Result<Vec<Property>, packet::PacketReadError> {
+fn read_properties(buffer: &mut &[u8]) -> Result<Vec<Property>> {
     let len: i32 = packet::data::PacketData::read(buffer)?;
     let mut properties = Vec::with_capacity(len as usize);
     for _ in 0..len {
@@ -18,7 +19,7 @@ fn read_properties(buffer: &mut &[u8]) -> Result<Vec<Property>, packet::PacketRe
     Ok(properties)
 }
 
-fn write_properties(properties: &Vec<Property>, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+fn write_properties(properties: &Vec<Property>, buffer: &mut Vec<u8>) -> Result<()> {
     packet::data::PacketData::write(&(properties.len() as i32), buffer)?;
     for property in properties {
         property.write(buffer)?;
@@ -44,7 +45,7 @@ pub struct Property {
 }
 
 impl Property {
-    fn read(buffer: &mut &[u8]) -> Result<Self, packet::PacketReadError> {
+    fn read(buffer: &mut &[u8]) -> Result<Self> {
         let name = packet::data::PacketData::read(buffer)?;
         let value = packet::data::PacketData::read(buffer)?;
         let has_signature: bool = packet::data::PacketData::read(buffer)?;
@@ -60,7 +61,7 @@ impl Property {
         })
     }
 
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<()> {
         packet::data::PacketData::write(&self.name, buffer)?;
         packet::data::PacketData::write(&self.value, buffer)?;
         match &self.signature {

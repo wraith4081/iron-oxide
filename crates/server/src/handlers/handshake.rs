@@ -1,11 +1,11 @@
-use anyhow::Result;
 use iron_oxide_common::connection::{Connection, ConnectionState};
+use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_versions::v1_20_6::packets::handshake::Handshake;
 use iron_oxide_versions::VersionManager;
 use tracing::info;
 
 pub async fn handle_handshake(conn: &mut Connection) -> Result<ConnectionState> {
-    let handshake: Handshake = conn.read_packet().await?.unwrap();
+    let handshake: Handshake = conn.read_packet().await?.ok_or_else(|| Error::Protocol("Handshake packet not received".to_string()))?;
 
     conn.protocol_version = handshake.protocol_version;
 
@@ -25,8 +25,7 @@ pub async fn handle_handshake(conn: &mut Connection) -> Result<ConnectionState> 
         1 => Ok(ConnectionState::Status),
         2 => Ok(ConnectionState::Login),
         _ => {
-            anyhow::bail!("Invalid next state: {}", handshake.next_state);
+            Err(Error::Protocol(format!("Invalid next state: {}", handshake.next_state)))
         }
     }
 }
-

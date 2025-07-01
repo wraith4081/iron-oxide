@@ -1,5 +1,3 @@
-
-
 #[macro_export]
 macro_rules! packet {
     (
@@ -13,8 +11,8 @@ macro_rules! packet {
             $(pub $field: $type),*
         }
 
-        impl iron_oxide_protocol::packet::Packet for $name {
-            fn read(buffer: &mut &[u8]) -> Result<Self, iron_oxide_protocol::packet::PacketReadError> {
+        impl $crate::packet::Packet for $name {
+            fn read(buffer: &mut &[u8]) -> $crate::error::Result<Self> {
                 $(
                     let $field = packet!(@read_field buffer, $type, $($read)?);
                 )*
@@ -23,8 +21,8 @@ macro_rules! packet {
                 })
             }
 
-            fn write(&self, buffer: &mut Vec<u8>) -> Result<(), iron_oxide_protocol::packet::PacketWriteError> {
-                iron_oxide_protocol::packet::raw_data::write_varint(buffer, $id)?;
+            fn write(&self, buffer: &mut Vec<u8>) -> $crate::error::Result<()> {
+                $crate::packet::raw_data::write_varint(buffer, $id)?;
                 $(
                     packet!(@write_field buffer, &self.$field, $($write)?);
                 )*
@@ -38,7 +36,7 @@ macro_rules! packet {
     };
 
     (@read_field $buffer:expr, $type:ty,) => {
-        iron_oxide_protocol::packet::data::PacketData::read($buffer)?
+        $crate::packet::data::PacketData::read($buffer)?
     };
 
     (@write_field $buffer:expr, $field:expr, $write:expr) => {
@@ -46,7 +44,6 @@ macro_rules! packet {
     };
 
     (@write_field $buffer:expr, $field:expr,) => {
-        iron_oxide_protocol::packet::data::PacketData::write($field, $buffer)?
+        $crate::packet::data::PacketData::write($field, $buffer)?
     };
 }
-

@@ -1,6 +1,6 @@
-use anyhow::Result;
 use iron_oxide_common::config::Config;
 use iron_oxide_common::connection::{Connection, ConnectionState};
+use iron_oxide_protocol::error::Result;
 use iron_oxide_versions::VersionManager;
 use std::sync::Arc;
 

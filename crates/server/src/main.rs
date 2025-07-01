@@ -1,19 +1,19 @@
-use std::{fs, io};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use iron_oxide_common::connection::Connection;
 use iron_oxide_common::config::Config;
+use iron_oxide_protocol::error::Result;
 
 mod handlers;
 mod connection_handler;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let config_str = fs::read_to_string("server.toml").expect("Failed to read server.toml");
-    let config: Config = toml::from_str(&config_str).expect("Failed to parse server.toml");
+    let config_str = std::fs::read_to_string("server.toml")?;
+    let config: Config = toml::from_str(&config_str).map_err(|e| iron_oxide_protocol::error::Error::Protocol(format!("Failed to parse server.toml: {}", e)))?;
     let config = Arc::new(config);
 
     let listener = TcpListener::bind(config.server.address.clone()).await?;

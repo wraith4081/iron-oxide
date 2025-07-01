@@ -1,5 +1,5 @@
-use anyhow::Result;
 use iron_oxide_common::connection::Connection;
+use iron_oxide_protocol::error::Result;
 use iron_oxide_versions::VersionManager;
 
 pub async fn handle_status(conn: &mut Connection) -> Result<()> {

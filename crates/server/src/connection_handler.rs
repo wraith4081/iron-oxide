@@ -1,6 +1,6 @@
-use anyhow::Result;
 use tracing::info;
 use iron_oxide_common::connection::{Connection, ConnectionState};
+use iron_oxide_protocol::error::{Error, Result};
 use crate::handlers;
 
 pub async fn handle_connection(mut conn: Connection) -> Result<()> {
@@ -11,8 +11,13 @@ pub async fn handle_connection(mut conn: Connection) -> Result<()> {
                 conn.state = new_state;
             }
             ConnectionState::Status => {
-                if let Err(_e) = handlers::status::handle_status(&mut conn).await {
-                    info!("Client closed connection during status");
+                if let Err(e) = handlers::status::handle_status(&mut conn).await {
+                    match e {
+                        Error::Io(ref io_err) if io_err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                            info!("Client closed connection during status");
+                        }
+                        _ => return Err(e),
+                    }
                 }
                 return Ok(());
             }

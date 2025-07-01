@@ -1,12 +1,6 @@
-use thiserror::Error;
+use iron_oxide_protocol::error::VersionError;
 
 pub mod v1_20_6;
-
-#[derive(Debug, Error)]
-pub enum VersionError {
-    #[error("Unsupported protocol version: {0}")]
-    UnsupportedVersion(i32),
-}
 
 pub trait Version {
     fn protocol_version(&self) -> i32;
