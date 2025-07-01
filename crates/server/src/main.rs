@@ -14,6 +14,10 @@ async fn main() -> Result<()> {
 
     let config_str = std::fs::read_to_string("server.toml")?;
     let config: Config = toml::from_str(&config_str).map_err(|e| iron_oxide_protocol::error::Error::Protocol(format!("Failed to parse server.toml: {}", e)))?;
+    if let Err(e) = config.validate() {
+        error!("Invalid configuration: {}", e);
+        return Ok(());
+    }
     let config = Arc::new(config);
 
     let listener = TcpListener::bind(config.server.address.clone()).await?;
