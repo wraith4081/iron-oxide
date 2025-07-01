@@ -10,7 +10,8 @@ use crate::v1_20_6::packets::configuration::{
 use std::fs;
 use fastnbt::Value;
 use serde_json::Value as JsonValue;
-use iron_oxide_protocol::packet::data::read_varint;
+use iron_oxide_protocol::packet::raw_data::read_varint;
+use iron_oxide_protocol::packet::types::PacketBytes;
 
 fn json_to_nbt(json: &JsonValue) -> Value {
     match json {
@@ -78,7 +79,7 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
     // Send minecraft:brand
     let brand_message = ClientboundPluginMessage {
         channel: "minecraft:brand".to_string(),
-        data: vec![0x09, b'I', b'r', b'o', b'n', b'O', b'x', b'i', b'd', b'e'], // "IronOxide"
+        data: PacketBytes(vec![0x09, b'I', b'r', b'o', b'n', b'O', b'x', b'i', b'd', b'e']), // "IronOxide"
     };
     conn.write_packet(brand_message).await?;
     info!("Sent minecraft:brand");
@@ -134,7 +135,7 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
     info!("Sent Update Tags");
 
     // Send Finish Configuration
-    conn.write_packet(FinishConfiguration).await?;
+    conn.write_packet(FinishConfiguration {}).await?;
     info!("Sent Finish Configuration");
 
     Ok(())

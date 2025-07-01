@@ -1,7 +1,11 @@
+pub mod raw_data;
 pub mod data;
+pub mod types;
 
 use std::io;
 use thiserror::Error;
+use crate::packet::data::PacketData;
+
 
 #[derive(Debug, Error)]
 pub enum PacketReadError {

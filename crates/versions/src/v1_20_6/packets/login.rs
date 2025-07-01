@@ -1,55 +1,42 @@
-use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
-use iron_oxide_protocol::packet::data::{read_string, read_uuid, write_string, write_uuid, write_varint};
+use iron_oxide_protocol::packet;
 use uuid::Uuid;
 
-pub struct LoginStart {
-    pub name: String,
-    pub uuid: Uuid,
-}
-
-impl Packet for LoginStart {
-    fn read(buffer: &mut &[u8]) -> Result<Self, PacketReadError> {
-        let name = read_string(buffer)?;
-        let uuid = if buffer.is_empty() {
-            Uuid::new_v3(&Uuid::NAMESPACE_DNS, name.as_bytes())
-        } else {
-            read_uuid(buffer)?
-        };
-        Ok(Self { name, uuid })
-    }
-
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        write_string(buffer, &self.name)?;
-        write_uuid(buffer, self.uuid)?;
-        Ok(())
+packet! {
+    #[derive(Debug)]
+    pub struct LoginStart(0x00) {
+        name: String,
+        uuid: Uuid,
     }
 }
 
-pub struct LoginSuccess {
-    pub uuid: Uuid,
-    pub username: String,
-    pub properties: Vec<Property>,
-    pub enforce_secure_chat: bool,
+fn read_properties(buffer: &mut &[u8]) -> Result<Vec<Property>, packet::PacketReadError> {
+    let len: i32 = packet::data::PacketData::read(buffer)?;
+    let mut properties = Vec::with_capacity(len as usize);
+    for _ in 0..len {
+        properties.push(Property::read(buffer)?);
+    }
+    Ok(properties)
 }
 
-impl Packet for LoginSuccess {
-    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
-        unimplemented!()
+fn write_properties(properties: &Vec<Property>, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+    packet::data::PacketData::write(&(properties.len() as i32), buffer)?;
+    for property in properties {
+        property.write(buffer)?;
     }
+    Ok(())
+}
 
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        write_varint(buffer, 0x02)?;
-        write_uuid(buffer, self.uuid)?;
-        write_string(buffer, &self.username)?;
-        write_varint(buffer, self.properties.len() as i32)?;
-        for property in &self.properties {
-            property.write(buffer)?;
-        }
-        buffer.push(if self.enforce_secure_chat { 1 } else { 0 });
-        Ok(())
+packet! {
+    #[derive(Debug)]
+    pub struct LoginSuccess(0x02) {
+        uuid: Uuid,
+        username: String,
+        properties: Vec<Property> = (read_properties, write_properties),
+        enforce_secure_chat: bool,
     }
 }
 
+#[derive(Debug)]
 pub struct Property {
     pub name: String,
     pub value: String,
@@ -57,30 +44,39 @@ pub struct Property {
 }
 
 impl Property {
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        write_string(buffer, &self.name)?;
-        write_string(buffer, &self.value)?;
+    fn read(buffer: &mut &[u8]) -> Result<Self, packet::PacketReadError> {
+        let name = packet::data::PacketData::read(buffer)?;
+        let value = packet::data::PacketData::read(buffer)?;
+        let has_signature: bool = packet::data::PacketData::read(buffer)?;
+        let signature = if has_signature {
+            Some(packet::data::PacketData::read(buffer)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            name,
+            value,
+            signature,
+        })
+    }
+
+    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), packet::PacketWriteError> {
+        packet::data::PacketData::write(&self.name, buffer)?;
+        packet::data::PacketData::write(&self.value, buffer)?;
         match &self.signature {
             Some(signature) => {
-                buffer.push(1);
-                write_string(buffer, signature)?;
+                packet::data::PacketData::write(&true, buffer)?;
+                packet::data::PacketData::write(signature, buffer)?;
             }
             None => {
-                buffer.push(0);
+                packet::data::PacketData::write(&false, buffer)?;
             }
         }
         Ok(())
     }
 }
 
-pub struct LoginAcknowledged;
-
-impl Packet for LoginAcknowledged {
-    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
-        Ok(Self)
-    }
-
-    fn write(&self, _: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        unimplemented!()
-    }
+packet! {
+    #[derive(Debug)]
+    pub struct LoginAcknowledged(0x03) {}
 }

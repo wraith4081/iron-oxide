@@ -1,63 +1,29 @@
-use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
-use iron_oxide_protocol::packet::data::{read_long, write_long, write_string, write_varint};
+use iron_oxide_protocol::packet;
 use serde::{Deserialize, Serialize};
 
-pub struct StatusRequest;
+packet! {
+    #[derive(Debug)]
+    pub struct StatusRequest(0x00) {}
+}
 
-impl Packet for StatusRequest {
-    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
-        Ok(Self)
-    }
-
-    fn write(&self, _: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        unimplemented!()
+packet! {
+    #[derive(Debug)]
+    pub struct StatusResponse(0x00) {
+        response: String,
     }
 }
 
-pub struct StatusResponse {
-    pub response: String,
-}
-
-impl Packet for StatusResponse {
-    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
-        unimplemented!()
-    }
-
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        write_varint(buffer, 0x00)?;
-        write_string(buffer, &self.response)?;
-        Ok(())
+packet! {
+    #[derive(Debug)]
+    pub struct PingRequest(0x01) {
+        payload: i64,
     }
 }
 
-pub struct PingRequest {
-    pub payload: i64,
-}
-
-impl Packet for PingRequest {
-    fn read(buffer: &mut &[u8]) -> Result<Self, PacketReadError> {
-        let payload = read_long(buffer)?;
-        Ok(Self { payload })
-    }
-
-    fn write(&self, _: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        unimplemented!()
-    }
-}
-
-pub struct PongResponse {
-    pub payload: i64,
-}
-
-impl Packet for PongResponse {
-    fn read(_: &mut &[u8]) -> Result<Self, PacketReadError> {
-        unimplemented!()
-    }
-
-    fn write(&self, buffer: &mut Vec<u8>) -> Result<(), PacketWriteError> {
-        write_varint(buffer, 0x01)?;
-        write_long(buffer, self.payload)?;
-        Ok(())
+packet! {
+    #[derive(Debug)]
+    pub struct PongResponse(0x01) {
+        payload: i64,
     }
 }
 

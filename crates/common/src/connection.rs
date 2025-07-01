@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bytes::{Buf, BytesMut};
 use iron_oxide_protocol::packet::{Packet, PacketReadError, PacketWriteError};
-use iron_oxide_protocol::packet::data::{read_varint, write_varint};
+use iron_oxide_protocol::packet::raw_data::{read_varint, write_varint};
 use iron_oxide_protocol::stream::ConnectionIO;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
