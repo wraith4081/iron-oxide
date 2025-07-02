@@ -2,7 +2,7 @@ use tracing::info;
 use uuid::Uuid;
 use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_protocol::stream::ConnectionIO;
-use crate::v1_20_6::packets::login::{LoginAcknowledged, LoginStart, LoginSuccess};
+use crate::v1_21_5::packets::login::{LoginAcknowledged, LoginStart, LoginSuccess};
 
 pub async fn handle_login(conn: &mut (impl ConnectionIO + Send)) -> Result<()> {
     let login_start: LoginStart = conn.read_packet_io().await?.ok_or_else(|| Error::Protocol("LoginStart packet not received".to_string()))?;
@@ -18,7 +18,6 @@ pub async fn handle_login(conn: &mut (impl ConnectionIO + Send)) -> Result<()> {
         uuid,
         username: login_start.name.clone(),
         properties: Vec::new(),
-        enforce_secure_chat: false,
     };
 
     conn.write_packet_io(login_success).await?;

@@ -1,10 +1,10 @@
 use tracing::info;
 use iron_oxide_protocol::error::{Error, Result};
 use iron_oxide_protocol::stream::ConnectionIO;
-use crate::v1_20_6::packets::status::{
+use crate::v1_21_5::packets::status::{
     PingRequest, PongResponse, StatusRequest, StatusResponse as StatusResponsePacket,
 };
-use crate::v1_20_6::packets::status::{Description, Players, Version};
+use crate::v1_21_5::packets::status::{Description, Players, Version};
 
 pub async fn handle_status(
     conn: &mut (impl ConnectionIO + Send),
@@ -17,8 +17,8 @@ pub async fn handle_status(
     let response = StatusResponsePacket {
         response: serde_json::to_string(&StatusResponse {
             version: Version {
-                name: "1.20.6".to_string(),
-                protocol: 766,
+                name: "1.21.5".to_string(),
+                protocol: 770,
             },
             players: Players {
                 max: max_players,

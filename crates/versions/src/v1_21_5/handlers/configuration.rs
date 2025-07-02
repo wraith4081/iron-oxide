@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tracing::info;
 use iron_oxide_common::config::Config;
 use iron_oxide_common::connection::{Connection, ConnectionState};
-use crate::v1_20_6::packets::configuration::{
+use crate::v1_21_5::packets::configuration::{
     ClientboundPluginMessage, ClientInformation, FinishConfiguration, AcknowledgeFinishConfiguration,
     ClientboundKnownPacks, KnownPack, ServerboundKnownPacks, RegistryData, ServerboundPluginMessage,
 };
@@ -48,7 +48,7 @@ pub async fn handle_configuration(conn: &mut Connection, _config: Arc<Config>) -
     loop {
         let packet_id = read_varint(&mut conn.peek_packet().await?)?;
         match packet_id {
-            0x0e => { // Client Information
+            0x0f => { // Client Information
                 let _client_info: ClientInformation = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ClientInformation packet not received".to_string()))?;
                 info!("Received client information: {:?}", _client_info);
                 send_initial_server_configuration(conn).await?
@@ -85,7 +85,7 @@ async fn send_initial_server_configuration(conn: &mut Connection) -> Result<()> 
     info!("Sent minecraft:brand");
 
     // Send Feature Flags
-    let feature_flags_packet = crate::v1_20_6::packets::configuration::FeatureFlags {
+    let feature_flags_packet = crate::v1_21_5::packets::configuration::FeatureFlags {
         feature_flags: vec!["minecraft:vanilla".to_string()],
     };
     conn.write_packet(feature_flags_packet).await?;
@@ -96,7 +96,7 @@ async fn send_initial_server_configuration(conn: &mut Connection) -> Result<()> 
         packs: vec![KnownPack {
             namespace: "minecraft".to_string(),
             id: "core".to_string(),
-            version: "1.20.6".to_string(),
+            version: "1.21.5".to_string(),
         }],
     };
     conn.write_packet(known_packs).await?;
@@ -132,7 +132,7 @@ async fn send_final_server_configuration(conn: &mut Connection) -> Result<()> {
     info!("Sent Registry Data");
 
     // Send Update Tags
-    let update_tags_packet = crate::v1_20_6::packets::configuration::UpdateTags {
+    let update_tags_packet = crate::v1_21_5::packets::configuration::UpdateTags {
         tags: load_tags()?,
     };
     conn.write_packet(update_tags_packet).await?;

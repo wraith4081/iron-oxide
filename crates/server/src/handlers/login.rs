@@ -5,8 +5,8 @@ use iron_oxide_versions::VersionManager;
 pub async fn handle_login(conn: &mut Connection) -> Result<ConnectionState> {
     let version = VersionManager::get_version(conn.protocol_version)?;
     match version.protocol_version() {
-        766 => {
-            iron_oxide_versions::v1_20_6::handlers::login::handle_login(conn).await?;
+        770 => {
+            iron_oxide_versions::v1_21_5::handlers::login::handle_login(conn).await?;
             Ok(ConnectionState::Configuration)
         }
         _ => unreachable!(),

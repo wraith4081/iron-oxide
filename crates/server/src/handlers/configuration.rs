@@ -10,8 +10,8 @@ pub async fn handle_configuration(
 ) -> Result<ConnectionState> {
     let version = VersionManager::get_version(conn.protocol_version)?;
     match version.protocol_version() {
-        766 => {
-            iron_oxide_versions::v1_20_6::handlers::configuration::handle_configuration(
+        770 => {
+            iron_oxide_versions::v1_21_5::handlers::configuration::handle_configuration(
                 conn, config,
             )
             .await?;

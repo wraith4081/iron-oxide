@@ -33,7 +33,6 @@ packet! {
         uuid: Uuid,
         username: String,
         properties: Vec<Property> = (read_properties, write_properties),
-        enforce_secure_chat: bool,
     }
 }
 

@@ -1,6 +1,6 @@
 use iron_oxide_common::connection::{Connection, ConnectionState};
 use iron_oxide_protocol::error::{Error, Result};
-use iron_oxide_versions::v1_20_6::packets::handshake::Handshake;
+use iron_oxide_versions::v1_21_5::packets::handshake::Handshake;
 use iron_oxide_versions::VersionManager;
 use tracing::info;
 
