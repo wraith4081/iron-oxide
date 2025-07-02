@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::info;
 use iron_oxide_common::config::Config;
-use iron_oxide_common::connection::Connection;
+use iron_oxide_common::connection::{Connection, ConnectionState};
 use crate::v1_20_6::packets::configuration::{
     ClientboundPluginMessage, ClientInformation, FinishConfiguration, AcknowledgeFinishConfiguration,
     ClientboundKnownPacks, KnownPack, ServerboundKnownPacks, RegistryData, ServerboundPluginMessage,
@@ -45,52 +45,51 @@ fn json_to_nbt(json: &JsonValue) -> Result<Value> {
 pub async fn handle_configuration(conn: &mut Connection, _config: Arc<Config>) -> Result<()> {
     info!("Client entered configuration state");
 
-    // The client must send Client Information first.
-    let client_info: ClientInformation = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ClientInformation packet not received".to_string()))?;
-    info!("Received client information: {:?}", client_info);
-
-    // The client may send plugin messages. We need to handle them.
     loop {
         let packet_id = read_varint(&mut conn.peek_packet().await?)?;
         match packet_id {
-            0x00 => { // Client Information
+            0x0e => { // Client Information
                 let _client_info: ClientInformation = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ClientInformation packet not received".to_string()))?;
                 info!("Received client information: {:?}", _client_info);
+                send_initial_server_configuration(conn).await?
             }
-            0x02 => { // Plugin Message
+            0x19 => { // Plugin Message
                 let plugin_message: ServerboundPluginMessage = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ServerboundPluginMessage packet not received".to_string()))?;
                 info!("Received plugin message: {:?}", plugin_message);
             }
             0x07 => { // Known Packs
                 let serverbound_known_packs: ServerboundKnownPacks = conn.read_packet().await?.ok_or_else(|| Error::Protocol("ServerboundKnownPacks packet not received".to_string()))?;
                 info!("Received Known Packs: {:?}", serverbound_known_packs);
-                break;
+                send_final_server_configuration(conn).await?;
+            }
+            0x18 => {
+                let _ack: AcknowledgeFinishConfiguration = conn.read_packet().await?.ok_or_else(|| Error::Protocol("AcknowledgeFinishConfiguration packet not received".to_string()))?;
+                info!("Received Acknowledge Finish Configuration");
+                return Ok(())
             }
             _ => {
+                info!("Unknown packet {}", packet_id);
                 // For now, we'll ignore other packets.
                 let _ = conn.read_packet_raw().await?;
             }
         }
     }
-
-    // Send server configuration
-    send_server_configuration(conn).await?;
-
-    // Wait for Acknowledge Finish Configuration
-    let _ack: AcknowledgeFinishConfiguration = conn.read_packet().await?.ok_or_else(|| Error::Protocol("AcknowledgeFinishConfiguration packet not received".to_string()))?;
-    info!("Received Acknowledge Finish Configuration");
-
-    Ok(())
 }
 
-async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
-    // Send minecraft:brand
+async fn send_initial_server_configuration(conn: &mut Connection) -> Result<()> {
     let brand_message = ClientboundPluginMessage {
         channel: "minecraft:brand".to_string(),
         data: PacketBytes(vec![0x09, b'I', b'r', b'o', b'n', b'O', b'x', b'i', b'd', b'e']), // "IronOxide"
     };
     conn.write_packet(brand_message).await?;
     info!("Sent minecraft:brand");
+
+    // Send Feature Flags
+    let feature_flags_packet = crate::v1_20_6::packets::configuration::FeatureFlags {
+        feature_flags: vec!["minecraft:vanilla".to_string()],
+    };
+    conn.write_packet(feature_flags_packet).await?;
+    info!("Sent Feature Flags");
 
     // Send Known Packs
     let known_packs = ClientboundKnownPacks {
@@ -102,7 +101,11 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
     };
     conn.write_packet(known_packs).await?;
     info!("Sent Known Packs");
+    
+    Ok(())
+}
 
+async fn send_final_server_configuration(conn: &mut Connection) -> Result<()> {
     // Send Registry Data
     let registry_data_str = fs::read_to_string("config/v1_20_6/registry-data.json")?;
     let registry_data_json: JsonValue = serde_json::from_str(&registry_data_str).map_err(|e| Error::Protocol(format!("Failed to parse registry data: {}", e)))?;
@@ -127,13 +130,6 @@ async fn send_server_configuration(conn: &mut Connection) -> Result<()> {
         }
     }
     info!("Sent Registry Data");
-
-    // Send Feature Flags
-    let feature_flags_packet = crate::v1_20_6::packets::configuration::FeatureFlags {
-        feature_flags: vec!["minecraft:vanilla".to_string()],
-    };
-    conn.write_packet(feature_flags_packet).await?;
-    info!("Sent Feature Flags");
 
     // Send Update Tags
     let update_tags_packet = crate::v1_20_6::packets::configuration::UpdateTags {

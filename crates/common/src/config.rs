@@ -40,6 +40,7 @@ pub struct Server {
     pub motd: String,
     pub view_distance: u8,
     pub simulation_distance: u8,
+    pub enable_packet_logging: bool,
 }
 
 #[derive(Deserialize)]

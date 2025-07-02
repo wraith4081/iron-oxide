@@ -8,6 +8,7 @@ fn create_test_config(view_distance: u8, simulation_distance: u8, max_players: i
             motd: "A Minecraft Server".to_string(),
             view_distance,
             simulation_distance,
+            enable_packet_logging: false
         },
         players: Players { max_players },
     }

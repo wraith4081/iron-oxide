@@ -117,10 +117,18 @@ impl Connection {
 
         let packet_data = &self.buffer[packet_len_len..total_packet_len];
         let mut packet_data_slice = &packet_data[..];
-        let _packet_id = read_varint(&mut packet_data_slice)?;
+        let packet_id = read_varint(&mut packet_data_slice)?;
 
         let packet = T::read(&mut packet_data_slice)?;
         self.buffer.advance(total_packet_len);
+
+        if self.config.server.enable_packet_logging {
+            tracing::info!(
+                "Received packet: ID=0x{:X}, Type={}",
+                packet_id,
+                std::any::type_name::<T>()
+            );
+        }
 
         Ok(Some(packet))
     }
@@ -157,6 +165,16 @@ impl Connection {
         let mut final_buf = Vec::new();
         write_varint(&mut final_buf, buf.len() as i32)?;
         final_buf.extend_from_slice(&buf);
+
+        if self.config.server.enable_packet_logging {
+            let mut packet_data_slice = &buf[..];
+            let packet_id = read_varint(&mut packet_data_slice)?;
+            tracing::info!(
+                "Sent packet: ID=0x{:X}, Type={}",
+                packet_id,
+                std::any::type_name::<T>()
+            );
+        }
 
         self.stream.write_all(&final_buf).await?;
         Ok(())
